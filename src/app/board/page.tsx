@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 function BoardContent() {
@@ -39,11 +39,16 @@ function BoardContent() {
   // Drag state
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
 
-  // Form state
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Create Form state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeColumnId, setActiveColumnId] = useState<string>("");
-  const [formData, setFormData] = useState({ title: "", description: "" });
+  const [createFormData, setCreateFormData] = useState({ title: "", description: "" });
+
+  // Edit Form state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<CardType | null>(null);
+  const [editFormData, setEditFormData] = useState({ title: "", description: "", labels: "" });
 
   const fetchBoard = useCallback(async () => {
     if (!projectId) {
@@ -77,16 +82,16 @@ function BoardContent() {
     })
   );
 
-  // Form Handlers
+  // --- Create Card Handlers ---
   const openCreateModal = (columnId: string) => {
     setActiveColumnId(columnId);
-    setFormData({ title: "", description: "" });
-    setIsModalOpen(true);
+    setCreateFormData({ title: "", description: "" });
+    setIsCreateModalOpen(true);
   };
 
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
+    if (!createFormData.title.trim()) {
       toast({ title: "Error", description: "Title is required", type: "error" });
       return;
     }
@@ -99,8 +104,8 @@ function BoardContent() {
         body: JSON.stringify({
           projectId,
           columnId: activeColumnId,
-          title: formData.title,
-          description: formData.description,
+          title: createFormData.title,
+          description: createFormData.description,
         }),
       });
 
@@ -115,7 +120,7 @@ function BoardContent() {
         };
       });
       
-      setIsModalOpen(false);
+      setIsCreateModalOpen(false);
       toast({ title: "Success", description: "Card created" });
     } catch (error) {
       toast({ title: "Error", description: "Could not create card", type: "error" });
@@ -124,7 +129,94 @@ function BoardContent() {
     }
   };
 
-  // Drag Handlers
+  // --- Edit/Delete Card Handlers ---
+  const openEditModal = (card: CardType) => {
+    setEditingCard(card);
+    setEditFormData({
+      title: card.title,
+      description: card.description || "",
+      labels: card.labels ? card.labels.join(", ") : "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCard || !editFormData.title.trim()) return;
+
+    const updatedLabels = editFormData.labels
+      .split(",")
+      .map(l => l.trim())
+      .filter(l => l !== "");
+
+    // Optimistic Update
+    const previousBoard = board ? { ...board } : null;
+    
+    setBoard((prev) => {
+      if (!prev) return prev;
+      const newCards = [...prev.cards];
+      const index = newCards.findIndex(c => c.id === editingCard.id);
+      if (index !== -1) {
+        newCards[index] = { 
+          ...newCards[index], 
+          title: editFormData.title,
+          description: editFormData.description,
+          labels: updatedLabels,
+        };
+      }
+      return { ...prev, cards: newCards };
+    });
+
+    setIsEditModalOpen(false);
+
+    try {
+      const res = await fetch("/api/cards", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          cardId: editingCard.id,
+          title: editFormData.title,
+          description: editFormData.description,
+          labels: updatedLabels,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update card");
+      toast({ title: "Success", description: "Card updated" });
+    } catch (error) {
+      if (previousBoard) setBoard(previousBoard);
+      toast({ title: "Error", description: "Could not update card", type: "error" });
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!editingCard) return;
+    if (!confirm("Are you sure you want to delete this card?")) return;
+
+    // Optimistic Delete
+    const previousBoard = board ? { ...board } : null;
+    setBoard((prev) => {
+      if (!prev) return prev;
+      return { ...prev, cards: prev.cards.filter(c => c.id !== editingCard.id) };
+    });
+    
+    setIsEditModalOpen(false);
+
+    try {
+      const res = await fetch(`/api/cards?projectId=${projectId}&cardId=${editingCard.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete card");
+      toast({ title: "Deleted", description: "Card removed" });
+    } catch (error) {
+      if (previousBoard) setBoard(previousBoard);
+      toast({ title: "Error", description: "Could not delete card", type: "error" });
+    }
+  };
+
+  // --- Drag Handlers ---
   const onDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const { data } = active;
@@ -147,7 +239,6 @@ function BoardContent() {
 
     if (!isActiveCard) return;
 
-    // Moving a card over another card
     if (isActiveCard && isOverCard) {
       setBoard((board) => {
         if (!board) return board;
@@ -159,24 +250,19 @@ function BoardContent() {
         const activeCard = newCards[activeIndex];
         const overCard = newCards[overIndex];
 
-        // If they are in different columns, move to the new column
         if (activeCard.columnId !== overCard.columnId) {
           activeCard.columnId = overCard.columnId;
-          // Reorder logic will be handled below during arrayMove
         }
         
         return {
           ...board,
           cards: arrayMove(newCards, activeIndex, overIndex).map((card, index) => {
-            // Re-assign orders based on new positions for the affected columns
-            // Simple approach: re-assign all orders based on array order
             return { ...card, order: index };
           }),
         };
       });
     }
 
-    // Moving a card into an empty column
     if (isActiveCard && isOverColumn) {
       setBoard((board) => {
         if (!board) return board;
@@ -202,13 +288,11 @@ function BoardContent() {
     const activeId = active.id;
     const activeData = active.data.current?.card;
 
-    // Find the updated card in our state
     if (!board || !activeData) return;
     
     const updatedCard = board.cards.find(c => c.id === activeId);
     if (!updatedCard) return;
 
-    // If it actually moved or changed order, sync with backend
     if (
       updatedCard.columnId !== activeData.columnId || 
       updatedCard.order !== activeData.order
@@ -226,7 +310,6 @@ function BoardContent() {
         });
       } catch (err) {
         toast({ title: "Sync Error", description: "Could not save card position.", type: "error" });
-        // Revert could be implemented here by re-fetching the board
         fetchBoard();
       }
     }
@@ -263,7 +346,7 @@ function BoardContent() {
     <div className="flex h-full flex-col space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Kanban Board</h1>
-        <p className="text-sm text-gray-500 mt-1">Drag and drop tasks between columns.</p>
+        <p className="text-sm text-gray-500 mt-1">Drag and drop tasks between columns, or click a card to edit it.</p>
       </div>
 
       <div className="flex-1 overflow-x-auto pb-4">
@@ -281,6 +364,7 @@ function BoardContent() {
                 column={column}
                 cards={board.cards.filter((c) => c.columnId === column.id)}
                 onAddCard={openCreateModal}
+                onCardClick={openEditModal}
               />
             ))}
             <DragOverlay>
@@ -290,24 +374,56 @@ function BoardContent() {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add New Card">
+      {/* CREATE MODAL */}
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Add New Card">
         <form onSubmit={handleCreateCard} className="space-y-4">
           <Input
             label="Card Title"
             placeholder="What needs to be done?"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            value={createFormData.title}
+            onChange={(e) => setCreateFormData({ ...createFormData, title: e.target.value })}
             autoFocus
           />
           <Textarea
             label="Description (Optional)"
             placeholder="Add more details..."
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            value={createFormData.description}
+            onChange={(e) => setCreateFormData({ ...createFormData, description: e.target.value })}
           />
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
             <Button type="submit" isLoading={isSubmitting}>Add Card</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* EDIT MODAL */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Card">
+        <form onSubmit={handleUpdateCard} className="space-y-4">
+          <Input
+            label="Card Title"
+            value={editFormData.title}
+            onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+          />
+          <Textarea
+            label="Description"
+            value={editFormData.description}
+            onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+          />
+          <Input
+            label="Labels (comma-separated)"
+            placeholder="frontend, design, bug"
+            value={editFormData.labels}
+            onChange={(e) => setEditFormData({ ...editFormData, labels: e.target.value })}
+          />
+          <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+            <Button type="button" variant="danger" onClick={handleDeleteCard}>
+              <Trash2 className="h-4 w-4 mr-2" /> Delete
+            </Button>
+            <div className="flex gap-3">
+              <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+              <Button type="submit">Save Changes</Button>
+            </div>
           </div>
         </form>
       </Modal>

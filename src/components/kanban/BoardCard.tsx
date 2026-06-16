@@ -10,9 +10,10 @@ import { Card as CardType } from "@/types";
 interface BoardCardProps {
   card: CardType;
   isOverlay?: boolean;
+  onClick?: (card: CardType) => void;
 }
 
-export function BoardCard({ card, isOverlay }: BoardCardProps) {
+export function BoardCard({ card, isOverlay, onClick }: BoardCardProps) {
   const {
     attributes,
     listeners,
@@ -47,6 +48,7 @@ export function BoardCard({ card, isOverlay }: BoardCardProps) {
     <Card
       ref={setNodeRef}
       style={style}
+      onClick={() => onClick?.(card)}
       className={`group relative hover:border-blue-300 transition-colors cursor-grab active:cursor-grabbing ${
         isOverlay ? "rotate-2 shadow-xl border-blue-400" : ""
       }`}
