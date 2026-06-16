@@ -11,9 +11,10 @@ interface BoardColumnProps {
   column: Column;
   cards: CardType[];
   onAddCard: (columnId: string) => void;
+  onCardClick: (card: CardType) => void;
 }
 
-export function BoardColumn({ column, cards, onAddCard }: BoardColumnProps) {
+export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -51,7 +52,7 @@ export function BoardColumn({ column, cards, onAddCard }: BoardColumnProps) {
         <SortableContext items={sortedCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-3 min-h-[100px]">
             {sortedCards.map((card) => (
-              <BoardCard key={card.id} card={card} />
+              <BoardCard key={card.id} card={card} onClick={onCardClick} />
             ))}
           </div>
         </SortableContext>
