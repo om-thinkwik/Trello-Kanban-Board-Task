@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { simulateNetworkDelay, apiError } from "@/lib/api-utils";
+import { Project } from "@/types";
+
+export async function GET() {
+  await simulateNetworkDelay();
+  return NextResponse.json({ data: db.projects });
+}
+
+export async function POST(request: Request) {
+  await simulateNetworkDelay();
+  
+  try {
+    const body = await request.json();
+    
+    if (!body.name || !body.description) {
+      return apiError("Name and description are required", 400);
+    }
+
+    const newProject: Project = {
+      id: crypto.randomUUID(),
+      name: body.name,
+      description: body.description,
+      status: "active",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.projects.push(newProject);
+    
+    // Initialize an empty board for this new project
+    db.boards[newProject.id] = {
+      projectId: newProject.id,
+      columns: [
+        { id: `col-todo-${crypto.randomUUID()}`, title: "To Do", order: 0 },
+        { id: `col-in-progress-${crypto.randomUUID()}`, title: "In Progress", order: 1 },
+        { id: `col-review-${crypto.randomUUID()}`, title: "Review", order: 2 },
+        { id: `col-done-${crypto.randomUUID()}`, title: "Done", order: 3 },
+      ],
+      cards: [],
+    };
+
+    return NextResponse.json({ data: newProject }, { status: 201 });
+  } catch (error) {
+    return apiError("Invalid request body", 400);
+  }
+}
