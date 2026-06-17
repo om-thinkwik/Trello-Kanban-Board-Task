@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { ToastProvider } from "@/components/ui/Toast";
 
-const roboto = Roboto({ 
-  weight: ['400', '500', '700'],
-  subsets: ["latin"] 
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta" });
 
 export const metadata: Metadata = {
   title: "TaskFlow | Kanban Board",
@@ -22,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${roboto.className} bg-gray-50 text-gray-900 antialiased`}>
+      <body className={`${inter.variable} ${jakarta.variable} font-sans antialiased text-gray-900 bg-page-bg`}>
         <ToastProvider>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />
