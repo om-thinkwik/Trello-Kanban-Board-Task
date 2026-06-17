@@ -15,8 +15,21 @@
   --color-hairline: rgba(15,23,42,0.08);
   --shadow-figma: 0 1px 3px rgba(15,23,42,0.05);
   
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-toast-in: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 }
 
 @layer base {

@@ -37,7 +37,7 @@ export function Toast({ id, title, description, type = "info", onClose }: ToastP
   return (
     <div
       className={cn(
-        "pointer-events-auto flex w-full max-w-md items-start space-x-3 rounded-lg border p-4 shadow-lg transition-all animate-in slide-in-from-right-full duration-300",
+        "pointer-events-auto flex w-full max-w-md items-start space-x-3 rounded-lg border p-4 shadow-lg animate-toast-in",
         bgColors[type]
       )}
     >

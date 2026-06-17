@@ -1,28 +1,71 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { Plus, FolderGit2, Trash2, ArrowRight } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Plus, FolderGit2, Trash2, ArrowRight, Edit2, User } from "lucide-react";
 import { Project } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 
-export default function ProjectsPage() {
+const PRESET_COLORS = [
+  "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
+  "#06b6d4", "#3b82f6", "#6366f1", "#a855f7", "#ec4899"
+];
+
+const TEAM_MEMBERS = [
+  "Alex Morgan", "Sam Chen", "Jordan Lee", "Riley Park", "Casey Kim"
+];
+
+const projectSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  description: z.string().min(5, "Description must be at least 5 characters"),
+  color: z.string(),
+  lead: z.string().min(1, "Please select a project lead"),
+  status: z.enum(["active", "completed", "on-hold"])
+});
+type ProjectFormValues = z.infer<typeof projectSchema>;
+
+function ProjectsPageContent() {
   const { toast } = useToast();
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams?.get("search")?.toLowerCase() || "";
+
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({ name: "", description: "" });
+  
+  const [projectToDelete, setProjectToDelete] = useState<{id: string, name: string} | null>(null);
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProjectFormValues>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      color: PRESET_COLORS[0],
+      lead: "",
+      status: "active"
+    }
+  });
+
+  const watchColor = watch("color");
+  const watchStatus = watch("status");
 
   const fetchProjects = async () => {
     try {
@@ -43,39 +86,78 @@ export default function ProjectsPage() {
     fetchProjects();
   }, []);
 
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.description.trim()) {
-      toast({ title: "Error", description: "All fields are required.", type: "error" });
-      return;
-    }
+  const openCreateModal = () => {
+    setIsEditMode(false);
+    setEditingId(null);
+    reset({ name: "", description: "", color: PRESET_COLORS[0], lead: "", status: "active" });
+    setIsModalOpen(true);
+  };
 
+  const openEditModal = (project: Project, e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigation
+    setIsEditMode(true);
+    setEditingId(project.id);
+    reset({ 
+      name: project.name, 
+      description: project.description || "",
+      color: project.color || PRESET_COLORS[0],
+      lead: project.lead || TEAM_MEMBERS[0],
+      status: (project.status as any) || "active",
+    });
+    setIsModalOpen(true);
+  };
+
+  const onSubmit = async (data: ProjectFormValues) => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      if (isEditMode && editingId) {
+        const previousProjects = [...projects];
+        
+        // Optimistic UI update
+        setProjects((prev) => prev.map((p) => p.id === editingId ? { ...p, ...data } : p));
+        setIsModalOpen(false);
 
-      if (!res.ok) throw new Error("Failed to create project");
-      
-      const newProject = await res.json();
-      setProjects((prev) => [...prev, newProject.data]);
-      setIsModalOpen(false);
-      setFormData({ name: "", description: "" });
-      toast({ title: "Success", description: "Project created successfully!", type: "success" });
+        const res = await fetch(`/api/projects/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (!res.ok) {
+          setProjects(previousProjects);
+          throw new Error("Failed to update project");
+        }
+        
+        toast({ title: "Success", description: "Project updated successfully!", type: "success" });
+      } else {
+        const res = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (!res.ok) throw new Error("Failed to create project");
+        
+        const newProject = await res.json();
+        setProjects((prev) => [...prev, newProject.data]);
+        setIsModalOpen(false);
+        toast({ title: "Success", description: "Project created successfully!", type: "success" });
+      }
     } catch (err) {
-      toast({ title: "Error", description: "Could not create project.", type: "error" });
+      toast({ title: "Error", description: isEditMode ? "Could not update project." : "Could not create project.", type: "error" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteProject = async (id: string, e: React.MouseEvent) => {
-    e.preventDefault(); // prevent navigation since card is wrapped in a link
-    
-    if (!confirm("Are you sure you want to delete this project?")) return;
+  const confirmDelete = (id: string, projectName: string, e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigation
+    setProjectToDelete({ id, name: projectName });
+  };
+
+  const executeDeleteProject = async () => {
+    if (!projectToDelete) return;
+    const { id } = projectToDelete;
 
     // Optimistic UI update
     const previousProjects = [...projects];
@@ -86,9 +168,10 @@ export default function ProjectsPage() {
       if (!res.ok) throw new Error("Failed to delete");
       toast({ title: "Deleted", description: "Project has been removed." });
     } catch (err) {
-      // Revert on error
       setProjects(previousProjects);
       toast({ title: "Error", description: "Could not delete project.", type: "error" });
+    } finally {
+      setProjectToDelete(null);
     }
   };
 
@@ -96,10 +179,10 @@ export default function ProjectsPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Projects</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 font-heading">Projects</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your active projects and boards.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
+        <Button onClick={openCreateModal} className="w-full sm:w-auto bg-primary-accent hover:bg-primary-accent/90">
           <Plus className="mr-2 h-4 w-4" /> New Project
         </Button>
       </div>
@@ -124,8 +207,8 @@ export default function ProjectsPage() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
-              <CardHeader className="h-24 bg-gray-100 rounded-t-xl" />
-              <CardContent className="h-20 bg-gray-50 rounded-b-xl" />
+              <CardHeader className="h-24 bg-gray-100 rounded-t-[10px]" />
+              <CardContent className="h-20 bg-gray-50 rounded-b-[10px]" />
             </Card>
           ))}
         </div>
@@ -134,34 +217,51 @@ export default function ProjectsPage() {
       {/* DATA STATE */}
       {!isLoading && !error && projects.length > 0 && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {projects
+            .filter((p) => p.name.toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)))
+            .map((project) => (
             <Link key={project.id} href={`/board?projectId=${project.id}`} className="group block focus:outline-none">
-              <Card className="h-full transition-all hover:shadow-md hover:border-blue-200 focus-visible:ring-2 focus-visible:ring-blue-500">
-                <CardHeader className="pb-4">
+              <Card className="h-full transition-all hover:-translate-y-1 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary-accent overflow-hidden flex flex-col">
+                <div className="h-2 w-full" style={{ backgroundColor: project.color || PRESET_COLORS[0] }} />
+                <CardHeader className="pb-4 flex-1">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
-                      <FolderGit2 className="h-5 w-5 text-blue-500" />
-                      <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
+                      <FolderGit2 className="h-5 w-5 text-gray-400" />
+                      <CardTitle className="text-lg group-hover:text-primary-accent transition-colors font-heading">
                         {project.name}
                       </CardTitle>
                     </div>
-                    <button
-                      onClick={(e) => handleDeleteProject(project.id, e)}
-                      className="text-gray-400 hover:text-red-500 p-1 -mr-1 rounded opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100">
+                      <button
+                        onClick={(e) => openEditModal(project, e)}
+                        className="text-gray-400 hover:text-primary-accent p-1 rounded"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => confirmDelete(project.id, project.name, e)}
+                        className="text-gray-400 hover:text-red-500 p-1 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                  <Badge 
-                    variant={project.status === "active" ? "success" : "warning"} 
-                    className="mt-2 w-fit"
-                  >
-                    {project.status === "active" ? "Active" : "On Hold"}
-                  </Badge>
+                  <div className="flex items-center justify-between mt-2">
+                    <Badge 
+                      variant={project.status === "completed" ? "default" : project.status === "active" ? "success" : "warning"} 
+                      className="w-fit"
+                    >
+                      {project.status === "completed" ? "Completed" : project.status === "active" ? "Active" : "On Hold"}
+                    </Badge>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <User className="w-3 h-3 mr-1" />
+                      {project.lead || "Unassigned"}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-500 line-clamp-2">{project.description}</p>
-                  <div className="mt-4 flex items-center text-sm font-medium text-blue-600">
+                  <div className="mt-4 flex items-center text-sm font-medium text-primary-accent">
                     Open Board <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </CardContent>
@@ -179,34 +279,117 @@ export default function ProjectsPage() {
           <p className="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
             Get started by creating a new project. Each project comes with its own Kanban board.
           </p>
-          <Button onClick={() => setIsModalOpen(true)} className="mt-6">
+          <Button onClick={openCreateModal} className="mt-6">
             <Plus className="mr-2 h-4 w-4" /> Create Project
           </Button>
         </div>
       )}
 
-      {/* CREATE MODAL */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Project">
-        <form onSubmit={handleCreateProject} className="space-y-4">
-          <Input
-            label="Project Name"
-            placeholder="e.g., Marketing Website"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            autoFocus
-          />
-          <Textarea
-            label="Description"
-            placeholder="What is this project about?"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+      {/* CREATE / EDIT MODAL */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Project" : "Create New Project"}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Project Name</label>
+            <Input 
+              {...register("name")}
+              placeholder="e.g. Mobile App Redesign" 
+              autoFocus
+            />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <Textarea 
+              {...register("description")}
+              placeholder="What is this project about?"
+              className="resize-none h-24"
+            />
+            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Project Color</label>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setValue("color", color)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-in-out ${
+                    watchColor === color ? "border-gray-900 scale-110 shadow-md" : "border-transparent hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  aria-label={`Select color ${color}`}
+                />
+              ))}
+            </div>
+            {errors.color && <p className="text-red-500 text-xs mt-1">{errors.color.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Project Lead</label>
+            <select
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary-accent focus:outline-none focus:ring-1 focus:ring-primary-accent disabled:cursor-not-allowed disabled:bg-gray-100"
+              {...register("lead")}
+            >
+              <option value="" disabled hidden>Select a project lead...</option>
+              {TEAM_MEMBERS.map(member => (
+                <option key={member} value={member}>{member}</option>
+              ))}
+            </select>
+            {errors.lead && <p className="text-red-500 text-xs mt-1">{errors.lead.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Project Status</label>
+            <div className="flex bg-gray-100 p-1 rounded-lg w-full">
+              {(["active", "on-hold", "completed"] as const).map(status => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setValue("status", status)}
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
+                    watchStatus === status 
+                      ? "bg-white text-gray-900 shadow-sm" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {status.replace("-", " ")}
+                </button>
+              ))}
+            </div>
+            {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status.message}</p>}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-hairline mt-6">
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" isLoading={isSubmitting}>Create Project</Button>
+            <Button type="submit" isLoading={isSubmitting}>{isEditMode ? "Save Changes" : "Create Project"}</Button>
           </div>
         </form>
       </Modal>
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={executeDeleteProject}
+        title="Delete Project"
+        description={`Are you sure you want to delete "${projectToDelete?.name}"? All cards associated with this project will be permanently removed.`}
+        confirmText="Delete"
+      />
     </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent" />
+      </div>
+    }>
+      <ProjectsPageContent />
+    </Suspense>
   );
 }

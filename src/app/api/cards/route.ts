@@ -21,12 +21,17 @@ export async function POST(request: Request) {
 
     const newCard: Card = {
       id: crypto.randomUUID(),
+      projectId,
       columnId,
       title,
       description: description || "",
       labels: labels || [],
+      priority: body.priority || "Medium",
+      assignee: body.assignee || "Alex Morgan",
+      dueDate: body.dueDate || undefined,
       order: board.cards.filter(c => c.columnId === columnId).length,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     board.cards.push(newCard);

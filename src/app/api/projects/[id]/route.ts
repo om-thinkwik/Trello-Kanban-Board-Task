@@ -14,9 +14,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return apiError("Project not found", 404);
     }
 
+    if (body.name && body.name.length < 2) {
+      return apiError("Name must be at least 2 characters", 400);
+    }
+
     db.projects[index] = {
       ...db.projects[index],
-      ...body,
+      name: body.name !== undefined ? body.name : db.projects[index].name,
+      description: body.description !== undefined ? body.description : db.projects[index].description,
+      color: body.color !== undefined ? body.color : db.projects[index].color,
+      lead: body.lead !== undefined ? body.lead : db.projects[index].lead,
+      status: body.status !== undefined ? body.status : db.projects[index].status,
       updatedAt: new Date().toISOString(),
     };
 

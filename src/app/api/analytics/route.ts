@@ -49,13 +49,83 @@ export async function GET() {
   });
 
   const cardsDistributionData = [
-    { name: "To Do", count: cardsByColumn["To Do"] },
-    { name: "In Progress", count: cardsByColumn["In Progress"] },
-    { name: "Review", count: cardsByColumn["Review"] },
-    { name: "Done", count: cardsByColumn["Done"] },
+    { name: "To Do", count: cardsByColumn["To Do"], color: "#94a3b8" }, // slate-400
+    { name: "In Progress", count: cardsByColumn["In Progress"], color: "#3b82f6" }, // blue-500
+    { name: "Review", count: cardsByColumn["Review"], color: "#f59e0b" }, // amber-500
+    { name: "Done", count: cardsByColumn["Done"], color: "#10b981" }, // emerald-500
   ];
 
   const totalCards = Object.values(cardsByColumn).reduce((a, b) => a + b, 0);
+
+  // Aggregate Team Workload
+  const workloadByMember: Record<string, { member: string, todo: number, active: number, done: number, critical: number }> = {};
+
+  Object.values(db.boards).forEach((board) => {
+    const columnIdToTitle: Record<string, string> = {};
+    board.columns.forEach(col => { columnIdToTitle[col.id] = col.title; });
+
+    board.cards.forEach((card) => {
+      const assignee = card.assignee || "Unassigned";
+      if (!workloadByMember[assignee]) {
+        workloadByMember[assignee] = { member: assignee, todo: 0, active: 0, done: 0, critical: 0 };
+      }
+
+      const title = columnIdToTitle[card.columnId]?.toLowerCase() || "";
+      if (title === "to do") {
+        workloadByMember[assignee].todo++;
+      } else if (title === "done") {
+        workloadByMember[assignee].done++;
+      } else {
+        workloadByMember[assignee].active++;
+      }
+
+      if (card.priority === "Urgent" || card.priority === "High") {
+        workloadByMember[assignee].critical++;
+      }
+    });
+  });
+
+  const teamWorkloadData = Object.values(workloadByMember);
+
+  // Activity Trend (Last 14 days)
+  const activityTrendData: { date: string; created: number; completed: number }[] = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    activityTrendData.push({
+      date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      created: 0,
+      completed: 0,
+    });
+  }
+
+  const getDateStr = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch (e) {
+      return "";
+    }
+  };
+
+  Object.values(db.boards).forEach((board) => {
+    const columnIdToTitle: Record<string, string> = {};
+    board.columns.forEach(col => { columnIdToTitle[col.id] = col.title; });
+
+    board.cards.forEach((card) => {
+      if (card.createdAt) {
+        const createdStr = getDateStr(card.createdAt);
+        const trendItemC = activityTrendData.find(d => d.date === createdStr);
+        if (trendItemC) trendItemC.created++;
+      }
+
+      const title = columnIdToTitle[card.columnId]?.toLowerCase() || "";
+      if (title === "done" && card.updatedAt) {
+        const completedStr = getDateStr(card.updatedAt);
+        const trendItemD = activityTrendData.find(d => d.date === completedStr);
+        if (trendItemD) trendItemD.completed++;
+      }
+    });
+  });
 
   return NextResponse.json({
     data: {
@@ -65,6 +135,8 @@ export async function GET() {
       },
       projectStatusData,
       cardsDistributionData,
+      teamWorkloadData,
+      activityTrendData,
     }
   });
 }

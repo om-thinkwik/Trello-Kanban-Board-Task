@@ -12,5 +12,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return apiError("Board not found for this project", 404);
   }
 
-  return NextResponse.json({ data: board });
+  const project = db.projects.find(p => p.id === board.projectId);
+
+  return NextResponse.json({ 
+    data: board,
+    project: project || null 
+  });
 }

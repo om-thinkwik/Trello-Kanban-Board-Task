@@ -1,6 +1,6 @@
 "use client";
 
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Column, Card as CardType } from "@/types";
 import { BoardCard } from "./BoardCard";
@@ -23,21 +23,43 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
     },
   });
 
+  const { over } = useDndContext();
+  const isOverColumn = isOver || (over && cards.some(c => String(c.id) === String(over.id)));
+
   // Sort cards by order
   const sortedCards = [...cards].sort((a, b) => a.order - b.order);
 
+  const getColumnColor = (title: string) => {
+    const t = title.toLowerCase();
+    if (t === "to do") return "bg-slate-500";
+    if (t === "in progress") return "bg-blue-500";
+    if (t === "review") return "bg-amber-500";
+    if (t === "done") return "bg-emerald-500";
+    return "bg-gray-400";
+  };
+
+  const getDragOverColor = (title: string) => {
+    const t = title.toLowerCase();
+    if (t === "to do") return "bg-slate-100";
+    if (t === "in progress") return "bg-blue-50";
+    if (t === "review") return "bg-amber-50";
+    if (t === "done") return "bg-emerald-50";
+    return "bg-gray-100";
+  };
+
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col rounded-xl bg-gray-100/50 border border-gray-200">
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm text-gray-700">{column.title}</h3>
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+    <div className={`flex h-full w-[340px] shrink-0 flex-col rounded-2xl border border-transparent transition-colors duration-200 ${isOverColumn ? getDragOverColor(column.title) : 'bg-[#F8FAFC]'}`}>
+      <div className="flex items-center justify-between p-4 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-2 h-2 rounded-full ${getColumnColor(column.title)}`} />
+          <h3 className="font-bold text-sm text-gray-900">{column.title}</h3>
+          <span className="text-xs font-semibold text-gray-400 ml-1">
             {cards.length}
           </span>
         </div>
         <button 
           onClick={() => onAddCard(column.id)}
-          className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-1 rounded transition-colors"
+          className="text-gray-400 hover:text-gray-900 transition-colors flex items-center justify-center p-1"
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -45,34 +67,27 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
 
       <div
         ref={setNodeRef}
-        className={`flex-1 overflow-y-auto p-3 pt-0 transition-colors ${
-          isOver ? "bg-gray-200/50" : ""
-        }`}
+        className="flex-1 overflow-y-auto p-3 pt-0"
       >
         <SortableContext items={sortedCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-3 min-h-[100px]">
             {sortedCards.map((card) => (
-              <BoardCard key={card.id} card={card} onClick={onCardClick} />
+              <BoardCard 
+                key={card.id} 
+                card={card} 
+                onClick={onCardClick} 
+                isDoneColumn={column.title.toLowerCase() === "done"} 
+              />
             ))}
           </div>
         </SortableContext>
         
         {/* Helper text for empty columns */}
         {cards.length === 0 && (
-          <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-300">
-            <span className="text-xs text-gray-400">Drop cards here</span>
+          <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 mt-2">
+            <span className="text-xs text-gray-400 font-medium">Drop cards here</span>
           </div>
         )}
-      </div>
-
-      <div className="p-3 border-t border-gray-200">
-        <Button 
-          variant="ghost" 
-          className="w-full text-gray-500 justify-start hover:text-gray-700 hover:bg-gray-200"
-          onClick={() => onAddCard(column.id)}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Add a card
-        </Button>
       </div>
     </div>
   );

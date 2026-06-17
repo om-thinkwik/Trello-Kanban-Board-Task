@@ -14,15 +14,22 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    if (!body.name || !body.description) {
-      return apiError("Name and description are required", 400);
+    if (!body.name || body.name.length < 2) {
+      return apiError("Name is required and must be at least 2 characters", 400);
     }
+    
+    // Fallbacks if not provided (though the UI should provide them)
+    const color = body.color || "#4F46E5";
+    const lead = body.lead || "Unassigned";
 
     const newProject: Project = {
       id: crypto.randomUUID(),
       name: body.name,
-      description: body.description,
-      status: "active",
+      description: body.description || "",
+      status: body.status || "active",
+      color: color,
+      lead: lead,
+      members: [lead],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
