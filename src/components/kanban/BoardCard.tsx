@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardHeader, CardContent } from "@/components/ui/Card";
-import { GripVertical, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Card as CardType } from "@/types";
 
 interface BoardCardProps {

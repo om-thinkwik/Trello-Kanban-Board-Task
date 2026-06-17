@@ -18,18 +18,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return apiError("Name must be at least 2 characters", 400);
     }
 
+    const project = db.projects[index];
+
     db.projects[index] = {
-      ...db.projects[index],
-      name: body.name !== undefined ? body.name : db.projects[index].name,
-      description: body.description !== undefined ? body.description : db.projects[index].description,
-      color: body.color !== undefined ? body.color : db.projects[index].color,
-      lead: body.lead !== undefined ? body.lead : db.projects[index].lead,
-      status: body.status !== undefined ? body.status : db.projects[index].status,
+      ...project,
+      name: body.name ?? project.name,
+      description: body.description ?? project.description,
+      color: body.color ?? project.color,
+      lead: body.lead ?? project.lead,
+      status: body.status ?? project.status,
       updatedAt: new Date().toISOString(),
     };
 
     return NextResponse.json({ data: db.projects[index] });
-  } catch (error) {
+  } catch {
     return apiError("Invalid request body", 400);
   }
 }

@@ -102,7 +102,7 @@ export async function GET() {
   const getDateStr = (iso: string) => {
     try {
       return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } catch (e) {
+    } catch {
       return "";
     }
   };

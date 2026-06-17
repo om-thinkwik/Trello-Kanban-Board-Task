@@ -5,7 +5,6 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Column, Card as CardType } from "@/types";
 import { BoardCard } from "./BoardCard";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 interface BoardColumnProps {
   column: Column;

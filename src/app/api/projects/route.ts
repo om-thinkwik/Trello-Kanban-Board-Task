@@ -18,7 +18,6 @@ export async function POST(request: Request) {
       return apiError("Name is required and must be at least 2 characters", 400);
     }
     
-    // Fallbacks if not provided (though the UI should provide them)
     const color = body.color || "#4F46E5";
     const lead = body.lead || "Unassigned";
 
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json({ data: newProject }, { status: 201 });
-  } catch (error) {
+  } catch {
     return apiError("Invalid request body", 400);
   }
 }

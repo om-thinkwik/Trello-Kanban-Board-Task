@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     board.cards.push(newCard);
 
     return NextResponse.json({ data: newCard }, { status: 201 });
-  } catch (error) {
+  } catch {
     return apiError("Invalid request body", 400);
   }
 }
@@ -63,21 +63,15 @@ export async function PUT(request: Request) {
       return apiError("Card not found", 404);
     }
 
-    // Handle drag and drop reordering
-    if (columnId !== undefined && order !== undefined) {
-      // Re-calculate orders if column changed or order changed
-      // For a real app, this logic would be more robust, potentially happening in a DB transaction.
-      board.cards[cardIndex] = { ...board.cards[cardIndex], columnId, order, ...updates };
-      
-      // Simple re-sort to fix orders (mock DB approach)
-      // We assume the frontend sends the updated order of ALL cards in the affected columns, 
-      // or we just trust the specific order sent. Here we just update the specific card.
-    } else {
-      board.cards[cardIndex] = { ...board.cards[cardIndex], ...updates };
-    }
+    board.cards[cardIndex] = { 
+      ...board.cards[cardIndex], 
+      ...(columnId !== undefined && { columnId }),
+      ...(order !== undefined && { order }),
+      ...updates 
+    };
 
     return NextResponse.json({ data: board.cards[cardIndex] });
-  } catch (error) {
+  } catch {
     return apiError("Invalid request body", 400);
   }
 }
@@ -86,8 +80,6 @@ export async function DELETE(request: Request) {
   await simulateNetworkDelay();
   
   try {
-    // We expect { projectId, cardId } in the URL search params or body
-    // Using URL params for DELETE is more RESTful
     const url = new URL(request.url);
     const projectId = url.searchParams.get("projectId");
     const cardId = url.searchParams.get("cardId");
@@ -109,7 +101,7 @@ export async function DELETE(request: Request) {
     board.cards.splice(cardIndex, 1);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return apiError("Invalid request", 400);
   }
 }

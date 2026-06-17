@@ -75,7 +75,7 @@ function ProjectsPageContent() {
       if (!res.ok) throw new Error("Failed to fetch projects");
       const json = await res.json();
       setProjects(json.data);
-    } catch (err) {
+    } catch {
       setError("Failed to load projects. Please try again later.");
     } finally {
       setIsLoading(false);
@@ -102,6 +102,7 @@ function ProjectsPageContent() {
       description: project.description || "",
       color: project.color || PRESET_COLORS[0],
       lead: project.lead || TEAM_MEMBERS[0],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: (project.status as any) || "active",
     });
     setIsModalOpen(true);
@@ -143,7 +144,7 @@ function ProjectsPageContent() {
         setIsModalOpen(false);
         toast({ title: "Success", description: "Project created successfully!", type: "success" });
       }
-    } catch (err) {
+    } catch {
       toast({ title: "Error", description: isEditMode ? "Could not update project." : "Could not create project.", type: "error" });
     } finally {
       setIsSubmitting(false);
@@ -167,7 +168,7 @@ function ProjectsPageContent() {
       const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       toast({ title: "Deleted", description: "Project has been removed." });
-    } catch (err) {
+    } catch {
       setProjects(previousProjects);
       toast({ title: "Error", description: "Could not delete project.", type: "error" });
     } finally {

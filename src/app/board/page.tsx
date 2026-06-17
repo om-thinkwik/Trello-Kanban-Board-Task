@@ -72,12 +72,13 @@ function BoardContent() {
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [cardToDelete, setCardToDelete] = useState<{id: string, title: string} | null>(null);
 
-  const { control, handleSubmit, reset, setValue, watch, formState: { errors, isDirty, isSubmitting } } = useForm<CardFormValues>({
+  const { control, handleSubmit, reset, watch, formState: { errors, isDirty, isSubmitting } } = useForm<CardFormValues>({
     resolver: zodResolver(cardSchema),
     defaultValues: {
       title: "",
       description: "",
       status: "",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: "" as any,
       assignee: "",
       dueDate: "",
@@ -98,7 +99,7 @@ function BoardContent() {
       const json = await res.json();
       setBoard(json.data);
       setProject(json.project);
-    } catch (err) {
+    } catch {
       setError("Failed to load board.");
     } finally {
       setIsLoading(false);
@@ -125,6 +126,7 @@ function BoardContent() {
       title: "",
       description: "",
       status: columnId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: "" as any,
       assignee: "",
       dueDate: "",
@@ -140,6 +142,7 @@ function BoardContent() {
       title: card.title,
       description: card.description || "",
       status: card.columnId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: card.priority as any,
       assignee: card.assignee,
       dueDate: card.dueDate ? new Date(card.dueDate).toISOString().split('T')[0] : "",
@@ -200,7 +203,7 @@ function BoardContent() {
 
         if (!res.ok) throw new Error("Failed to update card");
         toast({ title: "Success", description: "Card updated" });
-      } catch (error) {
+      } catch {
         if (previousBoard) setBoard(previousBoard);
         toast({ title: "Error", description: "Could not update card", type: "error" });
       }
@@ -235,7 +238,7 @@ function BoardContent() {
         
         setIsModalOpen(false);
         toast({ title: "Success", description: "Card created" });
-      } catch (error) {
+      } catch {
         toast({ title: "Error", description: "Could not create card", type: "error" });
       }
     }
@@ -268,7 +271,7 @@ function BoardContent() {
 
       if (!res.ok) throw new Error("Failed to delete card");
       toast({ title: "Deleted", description: "Card deleted" });
-    } catch (error) {
+    } catch {
       if (previousBoard) setBoard(previousBoard);
       toast({ title: "Error", description: "Could not delete card", type: "error" });
     } finally {
@@ -368,7 +371,7 @@ function BoardContent() {
             order: updatedCard.order,
           }),
         });
-      } catch (err) {
+      } catch {
         toast({ title: "Sync Error", description: "Failed to move card — reverting", type: "error" });
         fetchBoard(); // Revert
       }

@@ -3,21 +3,15 @@
 import { Bell, Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState, Suspense, useEffect } from "react";
+import { Suspense } from "react";
 
 function SearchInput() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState(searchParams?.get("search") || "");
-
-  useEffect(() => {
-    setQuery(searchParams?.get("search") || "");
-  }, [searchParams]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setQuery(val);
     
     const params = new URLSearchParams(searchParams?.toString() || "");
     if (val) {
@@ -39,9 +33,10 @@ function SearchInput() {
     <div className="flex flex-1 items-center relative">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <Input 
+        key={searchParams?.get("search") || "empty"}
         placeholder="Search projects, tasks..." 
         className="pl-9 bg-gray-50 border-transparent focus:bg-white focus:border-gray-300"
-        value={query}
+        defaultValue={searchParams?.get("search") || ""}
         onChange={handleSearch}
       />
     </div>
