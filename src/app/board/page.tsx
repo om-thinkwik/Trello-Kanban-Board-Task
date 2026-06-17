@@ -62,6 +62,7 @@ function BoardContent() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("All priorities");
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
 
   // Drag state
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -412,7 +413,8 @@ function BoardContent() {
     const matchesSearch = card.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (card.labels && card.labels.some(l => l.toLowerCase().includes(searchQuery.toLowerCase())));
     const matchesPriority = priorityFilter === "All priorities" || card.priority === priorityFilter;
-    return matchesSearch && matchesPriority;
+    const matchesAssignee = assigneeFilter === null || card.assignee === assigneeFilter;
+    return matchesSearch && matchesPriority && matchesAssignee;
   });
 
   const doneColumnId = board.columns.find(c => c.title.toLowerCase() === "done")?.id;
@@ -467,9 +469,10 @@ function BoardContent() {
                   {doneAssignees.map((member, i) => (
                     <div 
                       key={member}
-                      className="w-7 h-7 rounded-full bg-primary-accent border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm z-10 relative"
+                      onClick={() => setAssigneeFilter(prev => prev === member ? null : member)}
+                      className={`w-7 h-7 rounded-full bg-primary-accent border-2 flex items-center justify-center text-[10px] font-bold text-white shadow-sm z-10 relative cursor-pointer transition-transform hover:scale-110 ${assigneeFilter === member ? 'ring-2 ring-primary-accent ring-offset-1 border-white' : 'border-white'}`}
                       style={{ zIndex: 10 - i, backgroundColor: ["#4F46E5", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"][i % 5] }}
-                      title={`${member} (Completed a task)`}
+                      title={`${member} (Completed a task). Click to filter.`}
                     >
                       {getInitials(member)}
                     </div>
