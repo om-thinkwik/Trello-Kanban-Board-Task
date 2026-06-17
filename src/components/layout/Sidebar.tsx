@@ -15,34 +15,30 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-16 shrink-0 items-center px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-            <span className="text-lg font-bold text-white">T</span>
-          </div>
-          <span className="text-xl font-semibold tracking-tight text-gray-900">Trello</span>
-        </div>
+    <div className="flex w-64 flex-col bg-sidebar-bg text-gray-300 border-r border-hairline">
+      <div className="flex h-16 items-center px-6 border-b border-white/10">
+        <KanbanSquare className="h-6 w-6 text-primary-accent mr-2" />
+        <span className="text-lg font-heading font-bold tracking-tight text-white">Trello</span>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
         <nav className="flex-1 space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ease-in-out",
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-primary-accent/10 text-primary-accent"
+                    : "text-gray-400 hover:bg-white/5 hover:text-gray-100"
                 )}
               >
                 <item.icon
                   className={cn(
-                    "mr-3 h-5 w-5 shrink-0 transition-colors",
-                    isActive ? "text-blue-700" : "text-gray-400 group-hover:text-gray-500"
+                    "mr-3 h-5 w-5",
+                    isActive ? "text-primary-accent" : "text-gray-500 group-hover:text-gray-300"
                   )}
                   aria-hidden="true"
                 />

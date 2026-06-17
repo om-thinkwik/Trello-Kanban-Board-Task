@@ -2,10 +2,11 @@ import { Bell, Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 
 export function Navbar() {
+
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-      <div className="flex flex-1 items-center gap-4">
-        <div className="w-full max-w-md relative">
+    <header className="flex h-16 shrink-0 items-center gap-x-4 border-b border-hairline bg-white px-6 shadow-sm">
+      <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+        <div className="flex flex-1 items-center relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input placeholder="Search projects, tasks..." className="pl-9 bg-gray-50 border-transparent focus:bg-white focus:border-gray-300" />
         </div>
