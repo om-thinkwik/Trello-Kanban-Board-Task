@@ -2,6 +2,20 @@
 
 A modern, highly interactive project management application built with **Next.js (App Router)** and **Tailwind CSS**. This application mimics the core functionality of Trello, providing a seamless Kanban experience with advanced drag-and-drop capabilities, real-time analytics, and persistent sessions.
 
+##  Getting Started
+
+First, install dependencies:
+```bash
+npm install
+```
+
+Run the development server:
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
 ##  Core Features
 
 ###  Project Dashboard
@@ -38,20 +52,6 @@ A modern, highly interactive project management application built with **Next.js
 - **Forms & Validation:** `react-hook-form` and `zod`
 - **Charts:** [Recharts](https://recharts.org/)
 - **Database:** In-memory local storage (`db.ts`) simulating a RESTful API with intentional network delays for realistic UX testing.
-
-##  Getting Started
-
-First, install dependencies:
-```bash
-npm install
-```
-
-Run the development server:
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ##  Project Structure
 - `src/app/page.tsx` - The main Project Dashboard.
