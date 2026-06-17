@@ -18,6 +18,7 @@ import {
   AreaChart
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Loader2, TrendingUp, FolderKanban, CheckCircle2 } from "lucide-react";
 
 interface AnalyticsData {
@@ -56,8 +57,61 @@ export default function AnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      <div className="space-y-6 max-w-6xl mx-auto w-full">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        
+        {/* Skeleton Summary Stats */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <Card key={i} className="border border-gray-100 shadow-sm">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-lg" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Skeleton Charts */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card className="col-span-1 border border-gray-100 shadow-sm">
+            <CardHeader>
+              <Skeleton className="h-6 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+          
+          <Card className="col-span-1 border border-gray-100 shadow-sm">
+            <CardHeader>
+              <Skeleton className="h-6 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border border-gray-100 shadow-sm">
+          <CardHeader>
+            <Skeleton className="h-6 w-48 mb-1" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[300px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
       </div>
     );
   }

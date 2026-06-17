@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,6 +10,7 @@ import { Plus, FolderGit2, Trash2, ArrowRight, Edit2, User } from "lucide-react"
 import { Project } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -37,6 +38,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 function ProjectsPageContent() {
   const { toast } = useToast();
+  const router = useRouter();
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,10 +208,34 @@ function ProjectsPageContent() {
       {/* LOADING STATE */}
       {isLoading && !error && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="h-24 bg-gray-100 rounded-t-[10px]" />
-              <CardContent className="h-20 bg-gray-50 rounded-b-[10px]" />
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="h-full flex flex-col overflow-hidden border border-gray-100 shadow-sm">
+              <Skeleton className="h-2 w-full rounded-none" />
+              <CardHeader className="pb-4 flex-1">
+                <div className="flex items-center gap-2 mb-4">
+                  <Skeleton className="h-5 w-5 rounded-md" />
+                  <Skeleton className="h-6 w-3/4" />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-full mt-4" />
+                <Skeleton className="h-4 w-4/5 mt-2" />
+              </CardHeader>
+              <CardContent className="pb-4">
+                <div className="flex items-center -space-x-2">
+                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
+                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
+                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
+                </div>
+              </CardContent>
+              <div className="p-6 pt-0 border-t border-gray-50 bg-gray-50/50 flex flex-col items-start gap-2">
+                <div className="flex w-full justify-between items-center mt-3">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-3 w-8" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </div>
             </Card>
           ))}
         </div>
@@ -221,7 +247,19 @@ function ProjectsPageContent() {
           {projects
             .filter((p) => p.name.toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)))
             .map((project) => (
-            <Link key={project.id} href={`/board?projectId=${project.id}`} className="group block focus:outline-none">
+            <div 
+              key={project.id} 
+              onClick={() => router.push(`/board?projectId=${project.id}`)} 
+              className="group block focus:outline-none cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  router.push(`/board?projectId=${project.id}`);
+                }
+              }}
+            >
               <Card className="h-full transition-all hover:-translate-y-1 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary-accent overflow-hidden flex flex-col">
                 <div className="h-2 w-full" style={{ backgroundColor: project.color || PRESET_COLORS[0] }} />
                 <CardHeader className="pb-4 flex-1">
@@ -234,13 +272,19 @@ function ProjectsPageContent() {
                     </div>
                     <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100">
                       <button
-                        onClick={(e) => openEditModal(project, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(project, e);
+                        }}
                         className="text-gray-400 hover:text-primary-accent p-1 rounded"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={(e) => confirmDelete(project.id, project.name, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(project.id, project.name, e);
+                        }}
                         className="text-gray-400 hover:text-red-500 p-1 rounded"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -267,7 +311,7 @@ function ProjectsPageContent() {
                   </div>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
       )}

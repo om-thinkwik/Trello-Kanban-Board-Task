@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useSearchParams, useRouter, notFound } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { Loader2, Trash2, Search, ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const TEAM_MEMBERS = ["Alex Morgan", "Sam Chen", "Jordan Lee", "Riley Park", "Casey Kim"];
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
@@ -51,8 +52,30 @@ type CardFormValues = z.infer<typeof cardSchema>;
 
 function BoardContent() {
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("projectId");
+  const router = useRouter();
   const { toast } = useToast();
+
+  const [projectId, setProjectId] = useState<string | null>(searchParams.get("projectId"));
+  const [isCheckingStorage, setIsCheckingStorage] = useState(!searchParams.get("projectId"));
+
+  useEffect(() => {
+    const urlId = searchParams.get("projectId");
+    if (urlId) {
+      localStorage.setItem("lastOpenedProjectId", urlId);
+      if (urlId !== projectId) {
+        setIsLoading(true);
+        setProjectId(urlId);
+      }
+      setIsCheckingStorage(false);
+    } else {
+      const saved = localStorage.getItem("lastOpenedProjectId");
+      if (saved) {
+        router.replace(`/board?projectId=${saved}`);
+      } else {
+        setIsCheckingStorage(false);
+      }
+    }
+  }, [searchParams, projectId, router]);
 
   const [board, setBoard] = useState<Board | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -63,6 +86,20 @@ function BoardContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("All priorities");
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  
+  const avatarsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (avatarsRef.current && !avatarsRef.current.contains(event.target as Node)) {
+        setAssigneeFilter(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Drag state
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -89,7 +126,6 @@ function BoardContent() {
 
   const fetchBoard = useCallback(async () => {
     if (!projectId) {
-      setIsLoading(false);
       return;
     }
 
@@ -285,7 +321,8 @@ function BoardContent() {
     const { active } = event;
     const { data } = active;
     if (data.current?.type === "Card") {
-      setActiveCard(data.current.card);
+      // Store a shallow copy to prevent reference mutation during drag
+      setActiveCard({ ...data.current.card });
     }
   };
 
@@ -311,12 +348,14 @@ function BoardContent() {
         const overIndex = board.cards.findIndex((c) => c.id === overId);
         
         const newCards = [...board.cards];
-        const activeCard = newCards[activeIndex];
+        const activeCard = { ...newCards[activeIndex] };
         const overCard = newCards[overIndex];
 
         if (activeCard.columnId !== overCard.columnId) {
           activeCard.columnId = overCard.columnId;
         }
+        
+        newCards[activeIndex] = activeCard;
         
         return {
           ...board,
@@ -350,16 +389,12 @@ function BoardContent() {
     if (!over) return;
 
     const activeId = active.id;
-    const activeData = active.data.current?.card;
-
-    if (!board || !activeData) return;
-    
-    const updatedCard = board.cards.find(c => c.id === activeId);
-    if (!updatedCard) return;
+    const updatedCard = board?.cards.find(c => c.id === activeId);
+    if (!updatedCard || !activeCard) return;
 
     if (
-      updatedCard.columnId !== activeData.columnId || 
-      updatedCard.order !== activeData.order
+      updatedCard.columnId !== activeCard.columnId || 
+      updatedCard.order !== activeCard.order
     ) {
       try {
         await fetch("/api/cards", {
@@ -379,6 +414,61 @@ function BoardContent() {
     }
   };
 
+  if (isCheckingStorage || isLoading) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-48" />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-2 w-32 rounded-full" />
+              <div className="flex items-center -space-x-2">
+                <Skeleton className="h-7 w-7 rounded-full border-2 border-white" />
+                <Skeleton className="h-7 w-7 rounded-full border-2 border-white" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-9 w-48 rounded-md" />
+              <Skeleton className="h-9 w-32 rounded-md" />
+              <Skeleton className="h-9 w-24 rounded-md" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-x-auto pb-4">
+          <div className="flex h-full gap-6 px-1">
+            {[1, 2, 3, 4].map((col) => (
+              <div key={col} className="w-80 shrink-0 flex flex-col bg-gray-50 rounded-xl p-3 border border-gray-200">
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-6 rounded-full" />
+                </div>
+                <div className="flex flex-col gap-3">
+                  {[1, 2, 3].map((card) => (
+                    <div key={card} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <Skeleton className="h-4 w-4" />
+                      </div>
+                      <Skeleton className="h-5 w-full mb-3" />
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
+                        <Skeleton className="h-6 w-6 rounded-full" />
+                        <Skeleton className="h-4 w-12" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!projectId) {
     return (
       <div className="flex h-full flex-col items-center justify-center space-y-4">
@@ -390,20 +480,8 @@ function BoardContent() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
-      </div>
-    );
-  }
-
   if (error || !board) {
-    return (
-      <div className="flex h-full items-center justify-center text-red-500">
-        <p>{error || "Board not found"}</p>
-      </div>
-    );
+    notFound();
   }
 
   // --- UI Helpers & Filtering ---
@@ -465,7 +543,7 @@ function BoardContent() {
               if (doneAssignees.length === 0) return null;
 
               return (
-                <div className="flex items-center -space-x-2">
+                <div ref={avatarsRef} className="flex items-center -space-x-2">
                   {doneAssignees.map((member, i) => (
                     <div 
                       key={member}
