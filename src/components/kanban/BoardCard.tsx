@@ -1,6 +1,7 @@
 "use client";
 
 import { useSortable } from "@dnd-kit/sortable";
+import { useMemo } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardHeader, CardContent } from "@/components/ui/Card";
 import { Calendar } from "lucide-react";
@@ -25,6 +26,11 @@ const PRIORITY_STYLES = {
 };
 
 export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardProps) {
+  const sortableData = useMemo(() => ({
+    type: "Card",
+    card,
+  }), [card]);
+
   const {
     attributes,
     listeners,
@@ -34,10 +40,7 @@ export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardP
     isDragging,
   } = useSortable({
     id: card.id,
-    data: {
-      type: "Card",
-      card,
-    },
+    data: sortableData,
   });
 
   const style = {

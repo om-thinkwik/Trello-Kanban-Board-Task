@@ -357,24 +357,23 @@ function BoardContent() {
         }
 
         // Cross-column: move card to new column
-        const newCards = [...board.cards];
+        let newCards = [...board.cards];
         
-        // Find the index of the overCard inside its column to insert accurately
-        const overItems = newCards.filter(c => c.columnId === overCard.columnId).sort((a,b) => a.order - b.order);
-        const overIndex = overItems.findIndex(c => c.id === overId);
-        
-        const isBelowOverItem = over && active.rect.current.translated && active.rect.current.translated.top > over.rect.top + over.rect.height;
-        const modifier = isBelowOverItem ? 1 : 0;
-        const newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+        const activeIndex = newCards.findIndex(c => c.id === activeId);
+        const globalOverIndex = newCards.findIndex(c => c.id === overId);
 
-        // Insert at newIndex
-        overItems.splice(newIndex, 0, { ...activeCard, columnId: overCard.columnId });
+        // Moving to a different column
+        newCards[activeIndex] = { ...newCards[activeIndex], columnId: overCard.columnId };
+        newCards = arrayMove(newCards, activeIndex, globalOverIndex);
 
         // Update orders for the target column
-        overItems.forEach((item, idx) => {
+        const targetColumnId = overCard.columnId;
+        const targetItems = newCards.filter(c => c.columnId === targetColumnId);
+        
+        targetItems.forEach((item, idx) => {
           const i = newCards.findIndex(c => c.id === item.id);
           if (i !== -1) {
-            newCards[i] = { ...newCards[i], columnId: item.columnId, order: idx };
+            newCards[i] = { ...newCards[i], order: idx };
           }
         });
 

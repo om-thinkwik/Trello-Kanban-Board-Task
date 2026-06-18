@@ -14,20 +14,22 @@ interface BoardColumnProps {
 }
 
 export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColumnProps) {
+  const droppableData = useMemo(() => ({
+    type: "Column",
+    column,
+  }), [column]);
+
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
-    data: {
-      type: "Column",
-      column,
-    },
+    data: droppableData,
   });
 
-  // FIX 1: depend directly on `cards` — no intermediate cardsHash string
+  const cardsHash = cards.map(c => `${c.id}-${c.order}`).join(',');
   const sortedCards = useMemo(() => {
     return [...cards].sort((a, b) => a.order - b.order);
-  }, [cards]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardsHash]);
 
-  // FIX 2: derive itemIds from sortedCards, no extra useMemo needed
   const itemIds = useMemo(() => sortedCards.map((c) => c.id), [sortedCards]);
 
   const isDone = column.title.toLowerCase() === "done";
@@ -72,7 +74,7 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
         </button>
       </div>
 
-      <div ref={setNodeRef} className="flex-1 overflow-y-auto p-3 pt-0">
+      <div ref={setNodeRef} className="flex-1 overflow-y-scroll overflow-x-hidden p-3 pt-0">
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-3 min-h-[100px]">
             {sortedCards.map((card) => (
