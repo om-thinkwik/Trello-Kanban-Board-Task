@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
-export type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info";
 
 export interface ToastProps {
   id: string;
@@ -14,7 +14,7 @@ export interface ToastProps {
   onClose: (id: string) => void;
 }
 
-export function Toast({ id, title, description, type = "info", onClose }: ToastProps) {
+function Toast({ id, title, description, type = "info", onClose }: ToastProps) {
   React.useEffect(() => {
     const timer = setTimeout(() => {
       onClose(id);

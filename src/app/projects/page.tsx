@@ -67,7 +67,6 @@ function ProjectsPageContent() {
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const watchColor = watch("color");
-  // eslint-disable-next-line react-hooks/incompatible-library
   const watchStatus = watch("status");
 
   const fetchProjects = async () => {

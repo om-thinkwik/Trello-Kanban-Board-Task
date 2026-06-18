@@ -356,7 +356,6 @@ function BoardContent() {
 
         // Cross-column: move card to new column
         const newCards = [...board.cards];
-        const activeIndex = newCards.findIndex(c => c.id === activeId);
         
         // Find the index of the overCard inside its column to insert accurately
         const overItems = newCards.filter(c => c.columnId === overCard.columnId).sort((a,b) => a.order - b.order);
