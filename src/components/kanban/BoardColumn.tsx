@@ -1,5 +1,5 @@
 "use client";
-
+import { useMemo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Column, Card as CardType } from "@/types";
@@ -26,7 +26,12 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
   const isOverColumn = isOver || (over && cards.some(c => String(c.id) === String(over.id)));
 
   // Sort cards by order
-  const sortedCards = [...cards].sort((a, b) => a.order - b.order);
+  const cardsHash = cards.map(c => `${c.id}-${c.order}`).join(',');
+  const sortedCards = useMemo(() => {
+    return [...cards].sort((a, b) => a.order - b.order);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardsHash]);
+
 
   const getColumnColor = (title: string) => {
     const t = title.toLowerCase();
