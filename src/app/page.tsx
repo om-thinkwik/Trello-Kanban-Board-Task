@@ -1,440 +1,372 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Plus, FolderGit2, Trash2, ArrowRight, Edit2, User } from "lucide-react";
-import { Project } from "@/types";
-import { Button } from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { useState, useEffect } from "react";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  ComposedChart,
+  Area,
+  AreaChart
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
-import { ConfirmModal } from "@/components/ui/ConfirmModal";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
-import { useToast } from "@/components/ui/Toast";
+import { TrendingUp, FolderKanban, CheckCircle2 } from "lucide-react";
 
-const PRESET_COLORS = [
-  "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
-  "#06b6d4", "#3b82f6", "#6366f1", "#a855f7", "#ec4899"
-];
+interface AnalyticsData {
+  summary: {
+    totalProjects: number;
+    totalCards: number;
+  };
+  projectStatusData: { name: string; value: number; color: string }[];
+  cardsDistributionData: { name: string; count: number; color?: string }[];
+  teamWorkloadData: { member: string; todo: number; active: number; done: number; critical: number }[];
+  activityTrendData: { date: string; created: number; completed: number }[];
+}
 
-const TEAM_MEMBERS = [
-  "Alex Morgan", "Sam Chen", "Jordan Lee", "Riley Park", "Casey Kim"
-];
-
-const projectSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().min(5, "Description must be at least 5 characters"),
-  color: z.string(),
-  lead: z.string().min(1, "Please select a project lead"),
-  status: z.enum(["active", "completed", "on-hold"])
-});
-type ProjectFormValues = z.infer<typeof projectSchema>;
-
-function ProjectsPageContent() {
-  const { toast } = useToast();
-  const router = useRouter();
-  
-  const [projects, setProjects] = useState<Project[]>([]);
+export default function AnalyticsPage() {
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const searchParams = useSearchParams();
-  const searchQuery = searchParams?.get("search")?.toLowerCase() || "";
-
-  // Form State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [projectToDelete, setProjectToDelete] = useState<{id: string, name: string} | null>(null);
-
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProjectFormValues>({
-    resolver: zodResolver(projectSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      color: PRESET_COLORS[0],
-      lead: "",
-      status: "active"
-    }
-  });
-
-  const watchColor = watch("color");
-  const watchStatus = watch("status");
-
-  const fetchProjects = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await fetch("/api/projects");
-      if (!res.ok) throw new Error("Failed to fetch projects");
-      const json = await res.json();
-      setProjects(json.data);
-    } catch {
-      setError("Failed to load projects. Please try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchProjects();
+    const fetchAnalytics = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch("/api/analytics");
+        if (!res.ok) throw new Error("Failed to fetch analytics");
+        const json = await res.json();
+        setData(json.data);
+      } catch {
+        setError("Could not load analytics data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAnalytics();
   }, []);
 
-  const openCreateModal = () => {
-    setIsEditMode(false);
-    setEditingId(null);
-    reset({ name: "", description: "", color: PRESET_COLORS[0], lead: "", status: "active" });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (project: Project, e: React.MouseEvent) => {
-    e.preventDefault(); // prevent navigation
-    setIsEditMode(true);
-    setEditingId(project.id);
-    reset({ 
-      name: project.name, 
-      description: project.description || "",
-      color: project.color || PRESET_COLORS[0],
-      lead: project.lead || TEAM_MEMBERS[0],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      status: (project.status as any) || "active",
-    });
-    setIsModalOpen(true);
-  };
-
-  const onSubmit = async (data: ProjectFormValues) => {
-    setIsSubmitting(true);
-    try {
-      if (isEditMode && editingId) {
-        const previousProjects = [...projects];
-        
-        // Optimistic UI update
-        setProjects((prev) => prev.map((p) => p.id === editingId ? { ...p, ...data } : p));
-        setIsModalOpen(false);
-
-        const res = await fetch(`/api/projects/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-
-        if (!res.ok) {
-          setProjects(previousProjects);
-          throw new Error("Failed to update project");
-        }
-        
-        toast({ title: "Success", description: "Project updated successfully!", type: "success" });
-      } else {
-        const res = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-
-        if (!res.ok) throw new Error("Failed to create project");
-        
-        const newProject = await res.json();
-        setProjects((prev) => [...prev, newProject.data]);
-        setIsModalOpen(false);
-        toast({ title: "Success", description: "Project created successfully!", type: "success" });
-      }
-    } catch {
-      toast({ title: "Error", description: isEditMode ? "Could not update project." : "Could not create project.", type: "error" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const confirmDelete = (id: string, projectName: string, e: React.MouseEvent) => {
-    e.preventDefault(); // prevent navigation
-    setProjectToDelete({ id, name: projectName });
-  };
-
-  const executeDeleteProject = async () => {
-    if (!projectToDelete) return;
-    const { id } = projectToDelete;
-
-    // Optimistic UI update
-    const previousProjects = [...projects];
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-
-    try {
-      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      toast({ title: "Deleted", description: "Project has been removed." });
-    } catch {
-      setProjects(previousProjects);
-      toast({ title: "Error", description: "Could not delete project.", type: "error" });
-    } finally {
-      setProjectToDelete(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto w-full">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 font-heading">Projects</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your active projects and boards.</p>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
         </div>
-        <Button onClick={openCreateModal} className="w-full sm:w-auto bg-primary-accent hover:bg-primary-accent/90">
-          <Plus className="mr-2 h-4 w-4" /> New Project
-        </Button>
-      </div>
-
-      {/* ERROR STATE */}
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error Loading Data</h3>
-              <div className="mt-2 text-sm text-red-700"><p>{error}</p></div>
-              <div className="mt-4">
-                <Button variant="danger" size="sm" onClick={fetchProjects}>Try Again</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* LOADING STATE */}
-      {isLoading && !error && (
+        
+        {/* Skeleton Summary Stats */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="h-full flex flex-col overflow-hidden border border-gray-100 shadow-sm">
-              <Skeleton className="h-2 w-full rounded-none" />
-              <CardHeader className="pb-4 flex-1">
-                <div className="flex items-center gap-2 mb-4">
-                  <Skeleton className="h-5 w-5 rounded-md" />
-                  <Skeleton className="h-6 w-3/4" />
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
-                <Skeleton className="h-4 w-full mt-4" />
-                <Skeleton className="h-4 w-4/5 mt-2" />
+          {[1, 2, 3].map(i => (
+            <Card key={i} className="border border-gray-100 shadow-sm">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
               </CardHeader>
-              <CardContent className="pb-4">
-                <div className="flex items-center -space-x-2">
-                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
-                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
-                  <Skeleton className="h-8 w-8 rounded-full border-2 border-white" />
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-lg" />
+                  <Skeleton className="h-8 w-16" />
                 </div>
               </CardContent>
-              <div className="p-6 pt-0 border-t border-gray-50 bg-gray-50/50 flex flex-col items-start gap-2">
-                <div className="flex w-full justify-between items-center mt-3">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-3 w-8" />
-                </div>
-                <Skeleton className="h-1.5 w-full rounded-full" />
-              </div>
             </Card>
           ))}
         </div>
-      )}
 
-      {/* DATA STATE */}
-      {!isLoading && !error && projects.length > 0 && (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {projects
-            .filter((p) => p.name.toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)))
-            .map((project) => (
-            <div 
-              key={project.id} 
-              onClick={() => router.push(`/board?projectId=${project.id}`)} 
-              className="group block focus:outline-none cursor-pointer"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  router.push(`/board?projectId=${project.id}`);
-                }
-              }}
-            >
-              <Card className="h-full transition-all hover:-translate-y-1 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary-accent overflow-hidden flex flex-col">
-                <div className="h-2 w-full" style={{ backgroundColor: project.color || PRESET_COLORS[0] }} />
-                <CardHeader className="pb-4 flex-1">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <FolderGit2 className="h-5 w-5 text-gray-400" />
-                      <CardTitle className="text-lg group-hover:text-primary-accent transition-colors font-heading">
-                        {project.name}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(project, e);
-                        }}
-                        className="text-gray-400 hover:text-primary-accent p-1 rounded"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDelete(project.id, project.name, e);
-                        }}
-                        className="text-gray-400 hover:text-red-500 p-1 rounded"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <Badge 
-                      variant={project.status === "completed" ? "default" : project.status === "active" ? "success" : "warning"} 
-                      className="w-fit"
-                    >
-                      {project.status === "completed" ? "Completed" : project.status === "active" ? "Active" : "On Hold"}
-                    </Badge>
-                    <div className="flex items-center text-xs text-gray-500">
-                      <User className="w-3 h-3 mr-1" />
-                      {project.lead || "Unassigned"}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-500 line-clamp-2">{project.description}</p>
-                  <div className="mt-4 flex items-center text-sm font-medium text-primary-accent">
-                    Open Board <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* EMPTY STATE */}
-      {!isLoading && !error && projects.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 px-4 text-center">
-          <FolderGit2 className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-4 text-lg font-semibold text-gray-900">No projects yet</h3>
-          <p className="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
-            Get started by creating a new project. Each project comes with its own Kanban board.
-          </p>
-          <Button onClick={openCreateModal} className="mt-6">
-            <Plus className="mr-2 h-4 w-4" /> Create Project
-          </Button>
-        </div>
-      )}
-
-      {/* CREATE / EDIT MODAL */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Project" : "Create New Project"}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Project Name</label>
-            <Input 
-              {...register("name")}
-              placeholder="e.g. Mobile App Redesign" 
-              autoFocus
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <Textarea 
-              {...register("description")}
-              placeholder="What is this project about?"
-              className="resize-none h-24"
-            />
-            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
-          </div>
+        {/* Skeleton Charts */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card className="col-span-1 border border-gray-100 shadow-sm">
+            <CardHeader>
+              <Skeleton className="h-6 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
           
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Project Color</label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setValue("color", color)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-in-out ${
-                    watchColor === color ? "border-gray-900 scale-110 shadow-md" : "border-transparent hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: color }}
-                  aria-label={`Select color ${color}`}
-                />
-              ))}
-            </div>
-            {errors.color && <p className="text-red-500 text-xs mt-1">{errors.color.message}</p>}
-          </div>
+          <Card className="col-span-1 border border-gray-100 shadow-sm">
+            <CardHeader>
+              <Skeleton className="h-6 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Project Lead</label>
-            <select
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary-accent focus:outline-none focus:ring-1 focus:ring-primary-accent disabled:cursor-not-allowed disabled:bg-gray-100"
-              {...register("lead")}
-            >
-              <option value="" disabled hidden>Select a project lead...</option>
-              {TEAM_MEMBERS.map(member => (
-                <option key={member} value={member}>{member}</option>
-              ))}
-            </select>
-            {errors.lead && <p className="text-red-500 text-xs mt-1">{errors.lead.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Project Status</label>
-            <div className="flex bg-gray-100 p-1 rounded-lg w-full">
-              {(["active", "on-hold", "completed"] as const).map(status => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => setValue("status", status)}
-                  className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
-                    watchStatus === status 
-                      ? "bg-white text-gray-900 shadow-sm" 
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {status.replace("-", " ")}
-                </button>
-              ))}
-            </div>
-            {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status.message}</p>}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-hairline mt-6">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" isLoading={isSubmitting}>{isEditMode ? "Save Changes" : "Create Project"}</Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* CONFIRM DELETE MODAL */}
-      <ConfirmModal
-        isOpen={!!projectToDelete}
-        onClose={() => setProjectToDelete(null)}
-        onConfirm={executeDeleteProject}
-        title="Delete Project"
-        description={`Are you sure you want to delete "${projectToDelete?.name}"? All cards associated with this project will be permanently removed.`}
-        confirmText="Delete"
-      />
-    </div>
-  );
-}
-
-export default function ProjectsPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent" />
+        <Card className="border border-gray-100 shadow-sm">
+          <CardHeader>
+            <Skeleton className="h-6 w-48 mb-1" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[300px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
       </div>
-    }>
-      <ProjectsPageContent />
-    </Suspense>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex h-full items-center justify-center text-red-500">
+        <p>{error || "Failed to load"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Analytics Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-1">High-level overview of all your projects and tasks.</p>
+      </div>
+
+      {/* SUMMARY STATS */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Total Projects</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FolderKanban className="h-6 w-6 text-blue-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{data.summary.totalProjects}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Total Tasks Created</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-indigo-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{data.summary.totalCards}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Completed Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">
+                {data.cardsDistributionData.find(c => c.name === "Done")?.count || 0}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* CHARTS SECTIONS */}
+      <div className="flex flex-col gap-6">
+
+        {/* ACTIVITY TREND CHART */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle>Activity Trend</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Cards created vs. completed over the last 14 days
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-medium">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Created</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-emerald-500"></div>Completed</div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full min-w-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data.activityTrendData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                >
+                  <defs>
+                    <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#94A3B8' }} tickLine={false} axisLine={false} height={40} label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#94A3B8' }} tickLine={false} axisLine={false} allowDecimals={false} label={{ value: 'Number of Tasks', angle: -90, position: 'insideLeft', offset: 10, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="created" 
+                    name="Created" 
+                    stroke="#8b5cf6" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorCreated)" 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="completed" 
+                    name="Completed" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorCompleted)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* COMPOSED CHART: Team Workload & Critical Path */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle>Team Workload & Critical Path</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Visualizing task completion, active workload, and critical tasks bottleneck per team member.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-medium">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-400"></div>To Do</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-500"></div>Active</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500"></div>Done</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-red-500"></div>Critical</div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[400px] w-full min-w-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={data.teamWorkloadData}
+                  margin={{ top: 20, right: 20, bottom: 20, left: 0 }}
+                >
+                  <CartesianGrid stroke="#f5f5f5" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="member" tick={{ fontSize: 12, fill: '#64748B' }} tickLine={false} axisLine={false} height={40} label={{ value: 'Team Member', position: 'insideBottom', offset: -5, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#64748B' }} tickLine={false} axisLine={false} allowDecimals={false} label={{ value: 'Tasks Count', angle: -90, position: 'insideLeft', offset: 10, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#EF4444' }} tickLine={false} axisLine={false} allowDecimals={false} label={{ value: 'Critical Tasks', angle: 90, position: 'insideRight', offset: 10, fill: '#EF4444', fontSize: 12, fontWeight: 'bold' }} />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                  />
+                  <Bar yAxisId="left" dataKey="todo" name="To Do" stackId="a" fill="#94A3B8" radius={[0, 0, 4, 4]} maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="active" name="Active (In Progress/Review)" stackId="a" fill="#3B82F6" maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="done" name="Done" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Area yAxisId="right" type="monotone" dataKey="critical" name="Critical Tasks (Urgent/High)" fill="#FEE2E2" stroke="#EF4444" strokeWidth={2} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* BOTTOM ROW: SIDE BY SIDE CHARTS */}
+        <div className="grid gap-6 md:grid-cols-2">
+          
+          {/* BAR CHART */}
+          <Card className="col-span-1">
+            <CardHeader>
+              <CardTitle>Task Distribution by Column</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full min-w-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.cardsDistributionData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} height={40} label={{ value: 'Column Status', position: 'insideBottom', offset: -5, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} label={{ value: 'Task Count', angle: -90, position: 'insideLeft', offset: 10, fill: '#64748B', fontSize: 12, fontWeight: 'bold' }} />
+                    <Tooltip 
+                      cursor={{ fill: '#f3f4f6' }}
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 rounded-lg shadow-md border border-gray-100">
+                              <p className="text-sm text-gray-500 mb-1">{label}</p>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color }} />
+                                <p className="text-sm font-bold capitalize" style={{ color: data.color }}>
+                                  {payload[0].name}: {payload[0].value}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={50}>
+                      {data.cardsDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color || "#6366f1"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PIE CHART */}
+          <Card className="col-span-1">
+            <CardHeader>
+              <CardTitle>Project Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full min-w-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.projectStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {data.projectStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+    </div>
   );
 }

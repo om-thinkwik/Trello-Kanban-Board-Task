@@ -56,6 +56,7 @@ const initialCards: Card[] = [
     priority: "High",
     assignee: TEAM_MEMBERS[0],
     order: 0,
+    dueDate: new Date(now + dayMs * 3).toISOString(),
     createdAt: new Date(now - dayMs * 2).toISOString(),
     updatedAt: new Date(now - dayMs * 2).toISOString(),
   },
@@ -83,6 +84,7 @@ const initialCards: Card[] = [
     priority: "Medium",
     assignee: TEAM_MEMBERS[2],
     order: 0,
+    dueDate: new Date(now - dayMs * 5).toISOString(),
     createdAt: new Date(now - dayMs * 12).toISOString(),
     updatedAt: new Date(now - dayMs * 10).toISOString(),
   },
@@ -96,6 +98,7 @@ const initialCards: Card[] = [
     priority: "High",
     assignee: TEAM_MEMBERS[3],
     order: 1,
+    dueDate: new Date(now + dayMs * 1).toISOString(),
     createdAt: new Date(now - dayMs * 10).toISOString(),
     updatedAt: new Date(now - dayMs * 8).toISOString(),
   },
@@ -109,6 +112,7 @@ const initialCards: Card[] = [
     priority: "Urgent",
     assignee: TEAM_MEMBERS[4],
     order: 2,
+    dueDate: new Date(now + dayMs * 7).toISOString(),
     createdAt: new Date(now - dayMs * 8).toISOString(),
     updatedAt: new Date(now - dayMs * 4).toISOString(),
   },
@@ -122,6 +126,7 @@ const initialCards: Card[] = [
     priority: "Medium",
     assignee: TEAM_MEMBERS[0],
     order: 0,
+    dueDate: new Date(now + dayMs * 2).toISOString(),
     createdAt: new Date(now - dayMs * 6).toISOString(),
     updatedAt: new Date(now - dayMs * 2).toISOString(),
   }
@@ -135,6 +140,7 @@ const titles = ["Fix Bug", "Update Docs", "Setup DB", "Refactor UI", "Write Test
 for (let i = 7; i <= 80; i++) {
   const createdDaysAgo = Math.floor(Math.random() * 14); // 0 to 13 days ago
   const updatedDaysAgo = Math.floor(Math.random() * (createdDaysAgo + 1)); // between created and today
+  const dueDaysOffset = Math.floor(Math.random() * 20) - 5; // -5 to +15 days from now
   const col = columnsList[Math.floor(Math.random() * columnsList.length)];
   
   generatedCards.push({
@@ -147,6 +153,7 @@ for (let i = 7; i <= 80; i++) {
     priority: priorities[Math.floor(Math.random() * priorities.length)],
     assignee: TEAM_MEMBERS[Math.floor(Math.random() * TEAM_MEMBERS.length)],
     order: i,
+    dueDate: new Date(now + dayMs * dueDaysOffset).toISOString(),
     createdAt: new Date(now - dayMs * createdDaysAgo).toISOString(),
     updatedAt: new Date(now - dayMs * updatedDaysAgo).toISOString(),
   });

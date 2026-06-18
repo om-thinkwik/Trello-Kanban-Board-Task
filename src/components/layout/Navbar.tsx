@@ -20,12 +20,12 @@ function SearchInput() {
       params.delete("search");
     }
     
-    // Only push to root if we are doing a global search, or just update query params on current page
+    // Only push to /projects if we are doing a global search, or just update query params on current page
     // Assuming the user meant searching projects on the dashboard
-    if (pathname !== "/") {
-      router.push(`/?${params.toString()}`);
+    if (pathname !== "/projects") {
+      router.push(`/projects?${params.toString()}`);
     } else {
-      router.replace(`/?${params.toString()}`);
+      router.replace(`/projects?${params.toString()}`);
     }
   };
 
@@ -34,7 +34,7 @@ function SearchInput() {
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <Input 
         key={searchParams?.get("search") || "empty"}
-        placeholder="Search projects, tasks..." 
+        placeholder="Search projects..." 
         className="pl-9 bg-gray-50 border-transparent focus:bg-white focus:border-gray-300"
         defaultValue={searchParams?.get("search") || ""}
         onChange={handleSearch}

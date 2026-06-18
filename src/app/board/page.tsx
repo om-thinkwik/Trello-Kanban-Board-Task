@@ -126,6 +126,7 @@ function BoardContent() {
 
   const fetchBoard = useCallback(async () => {
     if (!projectId) {
+      setIsLoading(false);
       return;
     }
 
@@ -343,41 +344,58 @@ function BoardContent() {
     if (isActiveCard && isOverCard) {
       setBoard((board) => {
         if (!board) return board;
-        
-        const activeIndex = board.cards.findIndex((c) => c.id === activeId);
-        const overIndex = board.cards.findIndex((c) => c.id === overId);
-        
-        const newCards = [...board.cards];
-        const activeCard = { ...newCards[activeIndex] };
-        const overCard = newCards[overIndex];
 
-        if (activeCard.columnId !== overCard.columnId) {
-          activeCard.columnId = overCard.columnId;
+        const activeCard = board.cards.find(c => c.id === activeId);
+        const overCard = board.cards.find(c => c.id === overId);
+        if (!activeCard || !overCard) return board;
+
+        // If they are in the same column, let onDragEnd handle the sorting.
+        if (activeCard.columnId === overCard.columnId) {
+          return board;
         }
+
+        // Cross-column: move card to new column
+        const newCards = [...board.cards];
+        const activeIndex = newCards.findIndex(c => c.id === activeId);
         
-        newCards[activeIndex] = activeCard;
+        // Find the index of the overCard inside its column to insert accurately
+        const overItems = newCards.filter(c => c.columnId === overCard.columnId).sort((a,b) => a.order - b.order);
+        const overIndex = overItems.findIndex(c => c.id === overId);
         
-        return {
-          ...board,
-          cards: arrayMove(newCards, activeIndex, overIndex).map((card, index) => {
-            return { ...card, order: index };
-          }),
-        };
+        const isBelowOverItem = over && active.rect.current.translated && active.rect.current.translated.top > over.rect.top + over.rect.height;
+        const modifier = isBelowOverItem ? 1 : 0;
+        const newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+
+        // Insert at newIndex
+        overItems.splice(newIndex, 0, { ...activeCard, columnId: overCard.columnId });
+
+        // Update orders for the target column
+        overItems.forEach((item, idx) => {
+          const i = newCards.findIndex(c => c.id === item.id);
+          if (i !== -1) {
+            newCards[i] = { ...newCards[i], columnId: item.columnId, order: idx };
+          }
+        });
+
+        return { ...board, cards: newCards };
       });
     }
 
     if (isActiveCard && isOverColumn) {
       setBoard((board) => {
         if (!board) return board;
+        const activeCard = board.cards.find(c => c.id === activeId);
+        if (!activeCard || activeCard.columnId === String(overId)) return board;
 
-        const activeIndex = board.cards.findIndex((c) => c.id === activeId);
         const newCards = [...board.cards];
-        
+        const activeIndex = newCards.findIndex(c => c.id === activeId);
+        const targetCardsCount = newCards.filter(c => c.columnId === String(overId)).length;
+
         newCards[activeIndex] = { 
           ...newCards[activeIndex], 
           columnId: String(overId),
+          order: targetCardsCount
         };
-
         return { ...board, cards: newCards };
       });
     }
@@ -389,29 +407,68 @@ function BoardContent() {
     if (!over) return;
 
     const activeId = active.id;
-    const updatedCard = board?.cards.find(c => c.id === activeId);
-    if (!updatedCard || !activeCard) return;
+    const overId = over.id;
 
-    if (
-      updatedCard.columnId !== activeCard.columnId || 
-      updatedCard.order !== activeCard.order
-    ) {
-      try {
-        await fetch("/api/cards", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId,
-            cardId: updatedCard.id,
-            columnId: updatedCard.columnId,
-            order: updatedCard.order,
-          }),
+    if (activeId !== overId) {
+      const isActiveCard = active.data.current?.type === "Card";
+      const isOverCard = over.data.current?.type === "Card";
+
+      if (isActiveCard && isOverCard) {
+        setBoard((board) => {
+          if (!board) return board;
+          
+          const activeCard = board.cards.find(c => c.id === activeId);
+          const overCard = board.cards.find(c => c.id === overId);
+          
+          if (activeCard && overCard && activeCard.columnId === overCard.columnId) {
+            // Reorder inside the same column
+            const columnCards = board.cards.filter(c => c.columnId === activeCard.columnId).sort((a,b) => a.order - b.order);
+            const oldIndex = columnCards.findIndex(c => c.id === activeId);
+            const newIndex = columnCards.findIndex(c => c.id === overId);
+            
+            const reordered = arrayMove(columnCards, oldIndex, newIndex);
+            
+            const newCards = [...board.cards];
+            reordered.forEach((item, idx) => {
+              const i = newCards.findIndex(c => c.id === item.id);
+              newCards[i] = { ...newCards[i], order: idx };
+            });
+            
+            return { ...board, cards: newCards };
+          }
+          return board;
         });
-      } catch {
-        toast({ title: "Sync Error", description: "Failed to move card — reverting", type: "error" });
-        fetchBoard(); // Revert
       }
     }
+
+    // Call API immediately after state settles
+    setTimeout(async () => {
+      setBoard((currentBoard) => {
+        if (!currentBoard) return currentBoard;
+        const updatedCard = currentBoard.cards.find(c => c.id === activeId);
+        if (!updatedCard || !activeCard) return currentBoard;
+
+        if (
+          updatedCard.columnId !== activeCard.columnId || 
+          updatedCard.order !== activeCard.order
+        ) {
+          fetch("/api/cards", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              cardId: updatedCard.id,
+              columnId: updatedCard.columnId,
+              order: updatedCard.order,
+            }),
+          }).catch(() => {
+            toast({ title: "Sync Error", description: "Failed to move card — reverting", type: "error" });
+            fetchBoard(); // Revert
+          });
+        }
+        return currentBoard;
+      });
+    }, 0);
   };
 
   if (isCheckingStorage || isLoading) {
@@ -441,25 +498,45 @@ function BoardContent() {
         <div className="flex-1 overflow-x-auto pb-4">
           <div className="flex h-full gap-6 px-1">
             {[1, 2, 3, 4].map((col) => (
-              <div key={col} className="w-80 shrink-0 flex flex-col bg-gray-50 rounded-xl p-3 border border-gray-200">
-                <div className="flex items-center justify-between mb-4 px-1">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-6 w-6 rounded-full" />
+              <div key={col} className="flex h-full w-[340px] shrink-0 flex-col rounded-2xl border border-transparent bg-[#F8FAFC]">
+                <div className="flex items-center justify-between p-4 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="w-2 h-2 rounded-full" />
+                    <Skeleton className="h-5 w-24 rounded-md" />
+                    <Skeleton className="h-4 w-4 rounded-full ml-1" />
+                  </div>
+                  <Skeleton className="h-6 w-6 rounded-md" />
                 </div>
-                <div className="flex flex-col gap-3">
-                  {[1, 2, 3].map((card) => (
-                    <div key={card} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                      <div className="flex justify-between items-start mb-2">
-                        <Skeleton className="h-5 w-16 rounded-full" />
-                        <Skeleton className="h-4 w-4" />
+                <div className="flex-1 overflow-y-auto p-3 pt-0">
+                  <div className="flex flex-col gap-3">
+                    {[1, 2, 3].map((card) => (
+                      <div key={card} className="bg-white rounded-xl shadow-sm overflow-hidden border border-transparent">
+                        <div className="p-3 pb-2 space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            <Skeleton className="h-4 w-16 rounded-full" />
+                            <Skeleton className="h-4 w-20 rounded-full" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Skeleton className="h-5 w-full rounded-md" />
+                            <Skeleton className="h-3 w-4/5 rounded-md" />
+                            <Skeleton className="h-3 w-3/4 rounded-md mt-1" />
+                          </div>
+                        </div>
+                        <div className="p-3 pt-0 mt-2">
+                          <div className="flex items-center justify-between mt-auto">
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-4 rounded-md" />
+                              <Skeleton className="h-3 w-16 rounded-md" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-5 w-12 rounded-full" />
+                              <Skeleton className="h-6 w-6 rounded-full" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <Skeleton className="h-5 w-full mb-3" />
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
-                        <Skeleton className="h-6 w-6 rounded-full" />
-                        <Skeleton className="h-4 w-12" />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
@@ -473,7 +550,7 @@ function BoardContent() {
     return (
       <div className="flex h-full flex-col items-center justify-center space-y-4">
         <h2 className="text-xl font-medium text-gray-900 font-heading">No project selected</h2>
-        <Link href="/">
+        <Link href="/projects">
           <Button>Go back to Projects</Button>
         </Link>
       </div>
@@ -505,7 +582,7 @@ function BoardContent() {
       {/* TOP HEADER AREA */}
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1 text-sm font-medium mr-2">
+          <Link href="/projects" className="text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1 text-sm font-medium mr-2">
             <ArrowLeft className="w-4 h-4" /> All projects
           </Link>
           {project && (
@@ -538,19 +615,19 @@ function BoardContent() {
 
             {/* AVATARS */}
             {(() => {
-              const doneAssignees = Array.from(new Set(board.cards.filter(c => c.columnId === doneColumnId && c.assignee).map(c => c.assignee)));
+              const boardAssignees = Array.from(new Set(board.cards.filter(c => c.assignee).map(c => c.assignee)));
               
-              if (doneAssignees.length === 0) return null;
+              if (boardAssignees.length === 0) return null;
 
               return (
                 <div ref={avatarsRef} className="flex items-center -space-x-2">
-                  {doneAssignees.map((member, i) => (
+                  {boardAssignees.map((member, i) => (
                     <div 
                       key={member}
                       onClick={() => setAssigneeFilter(prev => prev === member ? null : member)}
                       className={`w-7 h-7 rounded-full bg-primary-accent border-2 flex items-center justify-center text-[10px] font-bold text-white shadow-sm z-10 relative cursor-pointer transition-transform hover:scale-110 ${assigneeFilter === member ? 'ring-2 ring-primary-accent ring-offset-1 border-white' : 'border-white'}`}
                       style={{ zIndex: 10 - i, backgroundColor: ["#4F46E5", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"][i % 5] }}
-                      title={`${member} (Completed a task). Click to filter.`}
+                      title={`${member}. Click to filter.`}
                     >
                       {getInitials(member)}
                     </div>
@@ -694,6 +771,7 @@ function BoardContent() {
               name="dueDate"
               control={control}
               render={({ field }) => {
+                // eslint-disable-next-line react-hooks/incompatible-library
                 const formStatus = watch("status");
                 const isOverdue = isEditMode && field.value && new Date(field.value) < new Date() && board.columns.find(c => c.id === formStatus)?.title.toLowerCase() !== "done";
                 

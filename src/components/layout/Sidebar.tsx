@@ -6,9 +6,9 @@ import { LayoutDashboard, KanbanSquare, BarChart3, Settings } from "lucide-react
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Projects", href: "/", icon: LayoutDashboard },
+  { name: "Analytics", href: "/", icon: BarChart3 },
+  { name: "Projects", href: "/projects", icon: LayoutDashboard },
   { name: "Board", href: "/board", icon: KanbanSquare },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
 export function Sidebar() {

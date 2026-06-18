@@ -16,7 +16,7 @@ export default function NotFound() {
       </h1>
       
       <p className="mb-8 max-w-md text-lg text-gray-500 font-medium leading-relaxed">
-        Oops! It seems like you've wandered into an unknown territory. The board or project you're looking for doesn't exist.
+        Oops! It seems like you&apos;ve wandered into an unknown territory. The board or project you&apos;re looking for doesn&apos;t exist.
       </p>
       
       <div className="flex flex-col sm:flex-row gap-4">
