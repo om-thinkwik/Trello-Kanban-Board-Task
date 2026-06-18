@@ -494,7 +494,7 @@ function BoardContent() {
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-x-auto pb-4">
+        <div className="flex-1 overflow-hidden pb-4">
           <div className="flex h-full gap-6 px-1">
             {[1, 2, 3, 4].map((col) => (
               <div key={col} className="flex h-full w-[340px] shrink-0 flex-col rounded-2xl border border-transparent bg-[#F8FAFC]">
@@ -506,7 +506,7 @@ function BoardContent() {
                   </div>
                   <Skeleton className="h-6 w-6 rounded-md" />
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 pt-0">
+                <div className="flex-1 overflow-hidden p-3 pt-0">
                   <div className="flex flex-col gap-3">
                     {[1, 2, 3].map((card) => (
                       <div key={card} className="bg-white rounded-xl shadow-sm overflow-hidden border border-transparent">
