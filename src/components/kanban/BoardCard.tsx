@@ -39,13 +39,14 @@ export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardP
     transition,
     isDragging,
   } = useSortable({
-    id: card.id,
+    id: isOverlay ? `${card.id}-overlay` : card.id,
     data: sortableData,
+    disabled: isOverlay, // Prevent DragOverlay from registering a duplicate ID
   });
 
   const style = {
-    transition,
     transform: CSS.Transform.toString(transform),
+    transition,
   };
 
   if (isDragging && !isOverlay) {
@@ -53,26 +54,23 @@ export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardP
       <div
         ref={setNodeRef}
         style={style}
-        className="opacity-30 border-2 border-dashed border-primary-accent rounded-xl bg-primary-accent/10 h-24 w-full"
+        className="opacity-30 border-2 border-dashed border-primary-accent rounded-xl bg-primary-accent/10 min-h-[100px] w-full"
       />
     );
   }
 
-  // Overdue logic
   const isOverdue = card.dueDate 
     ? new Date(card.dueDate) < new Date() && !isDoneColumn 
     : false;
 
-  return (
+  const cardContent = (
     <Card
-      ref={setNodeRef}
-      style={style}
-      onClick={() => onClick?.(card)}
-      className={`group relative hover:border-primary-accent/50 transition-colors cursor-grab active:cursor-grabbing border-transparent shadow-sm rounded-xl ${
-        isOverlay ? "rotate-2 shadow-xl border-primary-accent" : ""
+      onClick={() => !isOverlay && onClick?.(card)}
+      className={`group relative hover:border-primary-accent/50 transition-colors border-transparent shadow-sm rounded-xl ${
+        isDoneColumn ? "bg-gray-50/80" : "bg-white"
+      } ${
+        isOverlay ? "rotate-2 shadow-xl border-primary-accent cursor-grabbing" : "cursor-grab active:cursor-grabbing"
       }`}
-      {...attributes}
-      {...listeners}
     >
       <CardHeader className="p-3 pb-2 space-y-2">
         {/* LABELS */}
@@ -92,7 +90,7 @@ export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardP
         )}
 
         <div className="flex flex-col gap-1">
-          <h4 className="font-bold text-sm text-gray-900 leading-snug">{card.title}</h4>
+          <h4 className={`font-bold text-sm leading-snug ${isDoneColumn ? "text-gray-500 line-through decoration-gray-300" : "text-gray-900"}`}>{card.title}</h4>
           {card.description && (
             <p className="text-xs text-gray-500 line-clamp-2">{card.description}</p>
           )}
@@ -131,5 +129,15 @@ export function BoardCard({ card, isOverlay, onClick, isDoneColumn }: BoardCardP
         </div>
       </CardContent>
     </Card>
+  );
+
+  if (isOverlay) {
+    return cardContent;
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {cardContent}
+    </div>
   );
 }
