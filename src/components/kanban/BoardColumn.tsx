@@ -1,6 +1,6 @@
 "use client";
 import { useMemo } from "react";
-import { useDroppable, useDndContext } from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Column, Card as CardType } from "@/types";
 import { BoardCard } from "./BoardCard";
@@ -22,18 +22,15 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
     },
   });
 
-  const { over } = useDndContext();
-  const isOverColumn = isOver || (over && cards.some(c => String(c.id) === String(over.id)));
-
-  // Sort cards by order
-  const cardsHash = cards.map(c => `${c.id}-${c.order}`).join(',');
+  // FIX 1: depend directly on `cards` — no intermediate cardsHash string
   const sortedCards = useMemo(() => {
     return [...cards].sort((a, b) => a.order - b.order);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardsHash]);
+  }, [cards]);
 
+  // FIX 2: derive itemIds from sortedCards, no extra useMemo needed
   const itemIds = useMemo(() => sortedCards.map((c) => c.id), [sortedCards]);
 
+  const isDone = column.title.toLowerCase() === "done";
 
   const getColumnColor = (title: string) => {
     const t = title.toLowerCase();
@@ -54,7 +51,11 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
   };
 
   return (
-    <div className={`flex h-full w-[340px] shrink-0 flex-col rounded-2xl border border-transparent transition-colors duration-200 ${isOverColumn ? getDragOverColor(column.title) : 'bg-[#F8FAFC]'}`}>
+    <div
+      className={`flex h-full w-[340px] shrink-0 flex-col rounded-2xl border border-transparent transition-colors duration-200 ${
+        isOver ? getDragOverColor(column.title) : "bg-[#F8FAFC]"
+      }`}
+    >
       <div className="flex items-center justify-between p-4 pb-3">
         <div className="flex items-center gap-2.5">
           <div className={`w-2 h-2 rounded-full ${getColumnColor(column.title)}`} />
@@ -63,7 +64,7 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
             {cards.length}
           </span>
         </div>
-        <button 
+        <button
           onClick={() => onAddCard(column.id)}
           className="text-gray-400 hover:text-gray-900 transition-colors flex items-center justify-center p-1"
         >
@@ -71,24 +72,20 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
         </button>
       </div>
 
-      <div
-        ref={setNodeRef}
-        className="flex-1 overflow-y-auto p-3 pt-0"
-      >
+      <div ref={setNodeRef} className="flex-1 overflow-y-auto p-3 pt-0">
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-3 min-h-[100px]">
             {sortedCards.map((card) => (
-              <BoardCard 
-                key={card.id} 
-                card={card} 
-                onClick={onCardClick} 
-                isDoneColumn={column.title.toLowerCase() === "done"} 
+              <BoardCard
+                key={card.id}
+                card={card}
+                onClick={onCardClick}
+                isDoneColumn={isDone}
               />
             ))}
           </div>
         </SortableContext>
-        
-        {/* Helper text for empty columns */}
+
         {cards.length === 0 && (
           <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 mt-2">
             <span className="text-xs text-gray-400 font-medium">Drop cards here</span>
