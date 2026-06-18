@@ -18,7 +18,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ##  Core Features
 
-###  Project Dashboard
+###  Project Dashboard (`/projects`)
 - **Create, Read, Update, Delete (CRUD):** Manage all your projects from a beautiful, responsive dashboard.
 - **Search & Filter:** Instantly filter your projects by name or description.
 - **Dynamic Theming:** Assign preset colors to your projects for quick visual identification.
@@ -35,7 +35,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
   > **No project selected**
   > **Go back to Projects**
 
-###  Analytics Dashboard (`/analytics`)
+###  Analytics Dashboard (`/` - Home)
 - High-level overview of all your projects and tasks.
 - Visual charts and graphs built with **Recharts**.
 - Real-time aggregation of task completion rates and project statuses.
@@ -49,13 +49,14 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - **Framework:** [Next.js](https://nextjs.org/) (App Router, React 18+)
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 - **Components:** [Radix UI](https://www.radix-ui.com/) (Primitives) & [Lucide](https://lucide.dev/) (Icons)
+- **Drag & Drop:** `@dnd-kit/core` and `@dnd-kit/sortable`
 - **Forms & Validation:** `react-hook-form` and `zod`
 - **Charts:** [Recharts](https://recharts.org/)
 - **Database:** In-memory local storage (`db.ts`) simulating a RESTful API with intentional network delays for realistic UX testing.
 
 ##  Project Structure
-- `src/app/page.tsx` - The main Project Dashboard.
+- `src/app/projects/page.tsx` - The main Project Dashboard.
 - `src/app/board/page.tsx` - The core Kanban Board logic and Drag-and-Drop handling.
-- `src/app/analytics/page.tsx` - The data visualization dashboard.
+- `src/app/page.tsx` - The data visualization dashboard (Analytics).
 - `src/components/ui/` - Reusable UI components (Modals, Cards, Skeletons).
 - `src/lib/db.ts` - The mock in-memory database and seed data.
