@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, notFound } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -148,10 +148,12 @@ function BoardContent() {
     fetchBoard();
   }, [fetchBoard]);
 
+  const pointerSensorOptions = useMemo(() => ({
+    activationConstraint: { distance: 5 },
+  }), []);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 }, // 5px tolerance to allow clicking buttons inside cards
-    }),
+    useSensor(PointerSensor, pointerSensorOptions),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

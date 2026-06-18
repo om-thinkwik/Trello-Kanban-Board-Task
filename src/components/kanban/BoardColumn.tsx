@@ -32,6 +32,8 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardsHash]);
 
+  const itemIds = useMemo(() => sortedCards.map((c) => c.id), [sortedCards]);
+
 
   const getColumnColor = (title: string) => {
     const t = title.toLowerCase();
@@ -73,7 +75,7 @@ export function BoardColumn({ column, cards, onAddCard, onCardClick }: BoardColu
         ref={setNodeRef}
         className="flex-1 overflow-y-auto p-3 pt-0"
       >
-        <SortableContext items={sortedCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-3 min-h-[100px]">
             {sortedCards.map((card) => (
               <BoardCard 
